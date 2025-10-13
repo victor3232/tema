@@ -2,10 +2,45 @@
 # ============================================
 # 🚀 Pterodactyl Nebula Installer (All-in-One)
 # Author: kibiljoe
-# Versi Modifikasi: Fully Automated Sequential Installer
+# Versi Modifikasi: Fully Automated Sequential Installer with Screen
 # ============================================
 
-# URL script eksternal disimpan dalam variabel agar mudah diubah
+# --- BLOK OTOMATISASI SCREEN ---
+if [ -z "$STY" ]; then
+    echo "===================================================================="
+    echo "Sesi ini tidak berjalan di dalam 'screen'. Mengonfigurasi secara otomatis..."
+    echo "===================================================================="
+    sleep 2
+
+    if ! command -v screen &> /dev/null; then
+        echo "'screen' tidak ditemukan. Memulai instalasi..."
+        if [[ $EUID -ne 0 ]]; then
+            sudo apt-get update && sudo apt-get install -y screen
+        else
+            apt-get update && apt-get install -y screen
+        fi
+        if ! command -v screen &> /dev/null; then
+            echo "ERROR: Instalasi 'screen' gagal. Mohon install manual."
+            exit 1
+        fi
+    fi
+
+    echo "Membuat sesi 'screen' baru bernama 'nebula' dan menjalankan ulang script..."
+    echo "Proses instalasi akan berjalan di latar belakang."
+    echo -e "Gunakan perintah: \e[1;32mscreen -r nebula\e[0m untuk melihat prosesnya."
+    echo "===================================================================="
+
+    screen -dmS nebula bash -c "curl -sL ${BASH_SOURCE[0]} | bash"
+    exit 0
+fi
+# --- AKHIR BLOK OTOMATISASI SCREEN ---
+
+echo "===================================================================="
+echo "Script berjalan di dalam sesi screen '$STY'. Instalasi aman dari timeout."
+echo -e "Jika koneksi terputus, sambung kembali dan ketik: \e[1;32mscreen -r nebula\e[0m"
+echo "===================================================================="
+sleep 3
+
 EXTERNAL_SCRIPT_URL="https://raw.githubusercontent.com/KiwamiXq1031/installer-premium/refs/heads/main/zero.sh"
 
 clear
@@ -17,13 +52,19 @@ echo -e "2) Install Depend Pterodactyl SAJA"
 echo -e "3) Install Tema Nebula SAJA"
 echo -e "0) Exit"
 echo -e "============================================"
-read -p "Pilih menu [0-3]: " choice
+
+# Jika script dijalankan tanpa input interaktif, otomatis pilih '1'
+if [ -t 0 ]; then
+    read -p "Pilih menu [0-3]: " choice
+else
+    # Otomatis baca input dari pipe
+    read choice
+fi
+
 
 case $choice in
-    1) # Opsi baru untuk install semuanya secara berurutan
+    1)
         echo -e "\n🚀 Memulai instalasi lengkap (Dependensi lalu Tema)..."
-        
-        # --- TAHAP 1: INSTALL DEPENDENSI ---
         echo -e "\n[TAHAP 1/2] Menginstall dependensi pterodactyl..."
         sleep 2
         DEBIAN_FRONTEND=noninteractive bash <(curl -s "$EXTERNAL_SCRIPT_URL") <<EOF
@@ -32,12 +73,8 @@ A
 Y
 Y
 EOF
-        
-        # Cek apakah Tahap 1 berhasil
         if [ $? -eq 0 ]; then
             echo -e "\n✅ [TAHAP 1/2] Berhasil install depend."
-            
-            # --- TAHAP 2: INSTALL TEMA (dijalankan otomatis) ---
             echo -e "\n[TAHAP 2/2] Melanjutkan install tema Nebula secara otomatis..."
             sleep 2
             DEBIAN_FRONTEND=noninteractive bash <(curl -s "$EXTERNAL_SCRIPT_URL") <<EOF
@@ -45,19 +82,17 @@ EOF
 
 
 EOF
-            # Cek apakah Tahap 2 berhasil
             if [ $? -eq 0 ]; then
                 echo -e "\n✅ [TAHAP 2/2] Berhasil install tema Nebula."
                 echo -e "\n🎉 SEMUA PROSES SELESAI!"
             else
-                echo -e "\n❌ [TAHAP 2/2] Gagal install tema Nebula, cek error di atas!"
+                echo -e "\n❌ [TAHAP 2/2] Gagal install tema Nebula."
             fi
         else
-            echo -e "\n❌ [TAHAP 1/2] Gagal install depend, proses dihentikan!"
+            echo -e "\n❌ [TAHAP 1/2] Gagal install depend."
         fi
         ;;
-        
-    2) # Opsi lama untuk install dependensi saja
+    2)
         echo -e "\n🚀 Memulai instalasi depend pterodactyl SAJA..."
         sleep 2
         DEBIAN_FRONTEND=noninteractive bash <(curl -s "$EXTERNAL_SCRIPT_URL") <<EOF
@@ -66,14 +101,8 @@ A
 Y
 Y
 EOF
-        if [ $? -eq 0 ]; then
-            echo -e "\n✅ Berhasil install depend."
-        else
-            echo -e "\n❌ Gagal install depend, cek error di atas!"
-        fi
         ;;
-        
-    3) # Opsi lama untuk install tema saja
+    3)
         echo -e "\n🌌 Memulai instalasi tema Nebula SAJA..."
         sleep 2
         DEBIAN_FRONTEND=noninteractive bash <(curl -s "$EXTERNAL_SCRIPT_URL") <<EOF
@@ -81,19 +110,12 @@ EOF
 
 
 EOF
-        if [ $? -eq 0 ]; then
-            echo -e "\n✅ Berhasil install tema Nebula."
-        else
-            echo -e "\n❌ Gagal install tema Nebula, cek error di atas!"
-        fi
         ;;
-        
     0)
         echo -e "👋 Keluar..."
         exit 0
         ;;
-        
     *)
-   echo -e "❌ Pilihan tidak valid!"
+        echo -e "❌ Pilihan tidak valid!"
         ;;
 esac
